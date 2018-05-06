@@ -2,7 +2,7 @@ name:                sweetpea
 version:             0.1.0.0
 -- synopsis:
 -- description:
-homepage:            https://github.com/anniecherk/sweetpea#readme
+homepage:            https://github.com/anniecherk/sweetpea-core#readme
 license:             BSD3
 license-file:        LICENSE
 author:              Annie Cherkaev
@@ -66,4 +66,4 @@ test-suite unitTests
 
 source-repository head
   type:     git
-  location: https://github.com/anniecherk/sweetpea
+  location: https://github.com/anniecherk/sweetpea-core
