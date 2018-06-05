@@ -1,0 +1,13 @@
+{ "fresh" : 18,
+  "requests" : [{
+    "equalityType" : "EQ",
+    "k" : 2,
+    "booleanValues" : [1, 3, 5]
+  },
+  {
+    "equalityType" : "LT",
+    "k" : 1,
+    "booleanValues" : [2, 4, 6]
+  }
+  ]
+}

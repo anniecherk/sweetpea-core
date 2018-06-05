@@ -49,17 +49,6 @@ import DataStructures
 ------------------------------------------------------------------
 ---------- High Level Functions (Assert ==, <, >) ----------------
 
--- return the number "in binary" where True is 1 and False is -1
--- ie, 2 => [1, -1]
--- 8 => [1, -1, -1, -1]
-toBinary :: Int -> [Int] -> [Int]
-toBinary input acc
-  | input == 0 = acc
-  | even input = toBinary (quot input 2) ((-1):acc)
-  | otherwise  = toBinary (quot input 2) (1:acc)
-
-
-
 -- asserts that the total multibit "sum" value out of popcount
 -- IS K (in binary), this requires left padding w. 0's for correct comparison
 -- (assertion made by adding those double implications to CNF accumulator)
@@ -75,6 +64,19 @@ kLessThanN = inequality True
 
 kGreaterThanN :: Int -> [Var] -> State (Count, CNF) ()
 kGreaterThanN = inequality False
+
+
+------------------------------------------------------------------
+---------- High Level Function Helpers ---------------------------
+
+-- return the number "in binary" where True is 1 and False is -1
+-- ie, 2 => [1, -1]
+-- 8 => [1, -1, -1, -1]
+toBinary :: Int -> [Int] -> [Int]
+toBinary input acc
+  | input == 0 = acc
+  | even input = toBinary (quot input 2) ((-1):acc)
+  | otherwise  = toBinary (quot input 2) (1:acc)
 
 -- TODO: use LL parser DS here instead of String
 inequality :: Bool -> Int -> [Var] -> State (Count, CNF) ()
@@ -100,7 +102,6 @@ subtract' k n = do
   (cs, _) <- rippleCarry twosCompN twosCompK
   -- assert that the top bit (the top carry out) is a 1 (meaning the number is negative in 2's comp)
   setToOne $ maximum cs --TODO:OVERFLOW IN TWOS COMP: the top carry bit? not top sum bit?
-
 
 
  -- https://courses.cs.vt.edu/csonline/NumberSystems/Lessons/SubtractionWithTwosComplement/index.html
