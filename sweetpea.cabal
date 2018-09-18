@@ -63,6 +63,8 @@ executable server
                      , Spock
                      , mtl
                      , text
+                     , uuid
+                     , process
   default-language:    Haskell2010
 
 test-suite unitTests
