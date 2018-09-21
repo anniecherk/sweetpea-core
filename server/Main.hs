@@ -19,8 +19,12 @@ import System.Process
 
 import Parser
 
-data ResponseSpec = ResponseSpec { solutions :: [[Int]]
+data ResponseSpec = ResponseSpec { ok :: Bool
+                                 , solutions :: [[Int]]
+                                 , stdout :: String
+                                 , stderr :: String
                                  } deriving (Generic, Eq, Show, ToJSON, FromJSON)
+
 
 type Api = SpockM () () () ()
 type ApiAction a = SpockAction () () () a
@@ -35,32 +39,32 @@ app =
   do get root $
        text "Healthy\n"
 
+     post "experiments/build-cnf" $ do
+       spec <- jsonBody' :: ApiAction JSONSpec
+       let dimacsStr = processRequests spec
+       text $ pack dimacsStr
+
      post "experiments/generate" $ do
        spec <- jsonBody' :: ApiAction JSONSpec
        guid <- liftIO $ toString <$> UUID.nextRandom
        let filename = guid ++ ".cnf"
+       let outputFilename = guid ++ ".out"
        liftIO $ saveCnf filename spec
-       solutionFilename <- liftIO $ runUnigen filename guid
-       solutionContents <- liftIO $ readSolutionFile solutionFilename
-       let solutions = extractSolutions solutionContents
-       json $ ResponseSpec solutions
+       (exitCode, stdout, stderr) <- liftIO $ readProcessWithExitCode "unigen" ["--verbosity=0", filename, outputFilename] ""
+
+       -- Perusing the code, it appears that unigen uses an exit code of 0 to indicate error, while positive
+       -- exit codes seem to indicate some form of success.
+       -- https://bitbucket.org/kuldeepmeel/unigen/src/4677b2ec4553b2a44a31910db0037820abdc1394/ugen2/cmsat/Main.cpp?at=master&fileviewer=file-view-default#Main.cpp-831
+       if exitCode == ExitSuccess
+         then json $ ResponseSpec False [] stdout stderr
+         else do
+           solutionFileStr <- liftIO $ readSolutionFile outputFilename
+           json $ ResponseSpec True (extractSolutions solutionFileStr) "" ""
 
 saveCnf :: String -> JSONSpec -> IO ()
 saveCnf filename spec =
   let dimacsStr = processRequests spec
     in writeFile filename dimacsStr
-
-runUnigen :: String -> String -> IO String
-runUnigen filename guid = do
-  let outputFilename = guid ++ ".out"
-  (exitCode, _, _) <- readProcessWithExitCode "unigen" ["--verbosity=0", filename, outputFilename] ""
-
-  -- Perusing the code, it appears that unigen uses an exit code of 0 to indicate error, while positive
-  -- exit codes seem to indicate some form of success.
-  -- https://bitbucket.org/kuldeepmeel/unigen/src/4677b2ec4553b2a44a31910db0037820abdc1394/ugen2/cmsat/Main.cpp?at=master&fileviewer=file-view-default#Main.cpp-831
-  if exitCode == ExitSuccess
-    then error "Either something went wrong while running unigen, or the formula was unsatisfiable"
-    else return outputFilename
 
 readSolutionFile :: String -> IO String
 readSolutionFile filename = do
