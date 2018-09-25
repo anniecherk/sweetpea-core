@@ -34,7 +34,7 @@ import CodeGen
 
 
 testHalfAdderDIMACS :: [String]
-testHalfAdderDIMACS = map (`showDIMACS` 4) testHalfAdderConstraints
+testHalfAdderDIMACS = map (\cnf -> showDIMACS cnf 4 0) testHalfAdderConstraints
   where testHalfAdderConstraints :: [CNF]
         testHalfAdderConstraints = map (\x-> adderConstraints ++ andCNF [head x] ++ andCNF [(head . tail) x]) allInputs
           where adderConstraints = snd $ execState (halfAdder 1 2) $ initState 2
@@ -44,7 +44,7 @@ testHalfAdderDIMACS = map (`showDIMACS` 4) testHalfAdderConstraints
 --
 --
 testFullAdderDIMACS :: [String]
-testFullAdderDIMACS = map (`showDIMACS` 5) testFullAdderConstraints
+testFullAdderDIMACS = map (\cnf -> showDIMACS cnf 5 0) testFullAdderConstraints
   where testFullAdderConstraints :: [CNF]
         testFullAdderConstraints = map (\x-> adderConstraints ++ andCNF (fstX x) ++ andCNF (sndX x) ++ andCNF (thdX x)) allInputs
           where adderConstraints = snd $ execState (fullAdder 1 2 3) $ initState 3
@@ -76,13 +76,13 @@ computeSolnFullAdder incoming cindex sindex = incoming ++ [c] ++ [s]
 ------------------
 
 rippleCarryDIMACS :: Int -> [String]
-rippleCarryDIMACS numDigs = map ((\ x -> showDIMACS (x ++ cnf) finalNVars) . map (: [])) allInputs
+rippleCarryDIMACS numDigs = map ((\ x -> showDIMACS (x ++ cnf) finalNVars 0) . map (: [])) allInputs
   where (finalNVars, cnf) = execState (rippleCarry [1.. numDigs] [numDigs+1.. numDigs*2]) $ initState numDigs
         allInputs = exhaust [1.. numDigs]
 
 -- Pop Count!
 popCountDIMACS :: Int -> [String]
-popCountDIMACS numDigs = map ((\ x -> showDIMACS (x ++ cnf) finalNVars) . map (: [])) allInputs
+popCountDIMACS numDigs = map ((\ x -> showDIMACS (x ++ cnf) finalNVars 0) . map (: [])) allInputs
   where (finalNVars, cnf) = execState (popCount [1.. numDigs]) $ initState numDigs
         allInputs = exhaust [1.. numDigs]
 
@@ -100,7 +100,7 @@ exhaust (x:xs) = concatMap (\ys -> [x:ys, (-x):ys]) (exhaust xs)
 -- (ie ask the solver to find an assignmnet where k of n are true)
 -- note: there are many soln's to this! the solver just needs to find *a* solution
 assertKofNDIMACS :: Int -> Int -> String
-assertKofNDIMACS numDigs k = showDIMACS cnf finalNVars
+assertKofNDIMACS numDigs k = showDIMACS cnf finalNVars 0
   where (finalNVars, cnf) = execState (assertKofN k [1.. numDigs]) $ initState numDigs
 
 -- this is the exhaustive version
@@ -114,7 +114,7 @@ assertAllKofNDIMACS numDigs = map (assertKofNDIMACS numDigs) [0.. numDigs]
 -- (ie ask the solver to find an assignmnet where k of n are true)
 -- note: there are many soln's to this! the solver just needs to find *a* solution
 popCountKlessthanDIMACS :: Int -> Int -> String
-popCountKlessthanDIMACS numDigs k = showDIMACS cnf finalNVars
+popCountKlessthanDIMACS numDigs k = showDIMACS cnf finalNVars 0
   where (finalNVars, cnf) = execState (kLessThanN k [1.. numDigs]) $ initState numDigs
 
 

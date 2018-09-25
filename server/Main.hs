@@ -50,7 +50,11 @@ app =
        let filename = guid ++ ".cnf"
        let outputFilename = guid ++ ".out"
        liftIO $ saveCnf filename spec
-       (exitCode, stdout, stderr) <- liftIO $ readProcessWithExitCode "unigen" ["--verbosity=0", filename, outputFilename] ""
+
+       let args = case (arguments (unigen spec)) of
+             Nothing -> []
+             Just argList -> argList
+       (exitCode, stdout, stderr) <- liftIO $ readProcessWithExitCode "unigen" (args ++ [filename, outputFilename]) ""
 
        -- Perusing the code, it appears that unigen uses an exit code of 0 to indicate error, while positive
        -- exit codes seem to indicate some form of success.

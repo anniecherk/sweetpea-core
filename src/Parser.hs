@@ -17,16 +17,21 @@ data Request = Request { equalityType :: Ordering
                        , booleanValues :: [Int]
                        } deriving (Generic, Eq, Show, ToJSON, FromJSON)
 
+data UnigenOptions = UnigenOptions { support :: Int
+                                   , arguments :: Maybe [String]
+                                   } deriving (Generic, Eq, Show, ToJSON, FromJSON)
+
 data JSONSpec = JSONSpec { fresh :: Int
                          , cnfs :: CNF
                          , requests :: [Request]
+                         , unigen :: UnigenOptions
                          } deriving (Generic, Eq, Show, ToJSON, FromJSON)
 
 
 processRequests :: JSONSpec -> String
-processRequests spec = showDIMACS finalCnf finalNVars
-    where (finalNVars, finalCnf) = (finalNVars, cnf ++ (cnfs spec))
-            where (finalNVars, cnf) = execState (mapM processARequest (requests spec)) $ initState (fresh spec)
+processRequests spec = showDIMACS finalCnf finalNVars (support (unigen spec))
+  where (finalNVars, finalCnf) = (finalNVars, cnf ++ (cnfs spec))
+          where (finalNVars, cnf) = execState (mapM processARequest (requests spec)) $ initState (fresh spec)
 
 processARequest :: Request -> State (Count, CNF) ()
 processARequest (Request EQ k boolVals) = assertKofN    k boolVals
