@@ -19,8 +19,12 @@ import System.Process
 
 import Parser
 
+data SolutionSpec = SolutionSpec { assignment :: [Int]
+                                 , frequency :: Int
+                                 } deriving (Generic, Eq, Show, ToJSON, FromJSON)
+
 data ResponseSpec = ResponseSpec { ok :: Bool
-                                 , solutions :: [[Int]]
+                                 , solutions :: [SolutionSpec]
                                  , stdout :: String
                                  , stderr :: String
                                  } deriving (Generic, Eq, Show, ToJSON, FromJSON)
@@ -74,12 +78,17 @@ readSolutionFile :: String -> IO String
 readSolutionFile filename = do
   readFile filename
 
-extractSolutions :: String -> [[Int]]
+extractSolutions :: String -> [SolutionSpec]
 extractSolutions solutionStr =
   let lines = split (=='\n') (strip (pack solutionStr))
   in map buildSolution lines
 
-buildSolution :: Text -> [Int]
+strToInt :: Text -> Int
+strToInt str = read $ unpack str
+
+buildSolution :: Text -> SolutionSpec
 buildSolution sol = do
   let intStrs = split (==' ') (pack [c | c <- unpack $ strip sol, not (c == 'v')])
-  map (\s -> read $ unpack s :: Int) (take ((length intStrs) - 1) intStrs)
+    in let assignment = map strToInt (take ((length intStrs) - 1) intStrs)
+           frequency = strToInt $ last $ split (==':') (last intStrs)
+       in SolutionSpec assignment frequency
