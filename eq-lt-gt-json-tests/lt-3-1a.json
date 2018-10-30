@@ -1,0 +1,8 @@
+{
+  "fresh": 3,
+  "cnfs": [[1, 2, 3], [1]],
+  "requests": [
+    {"equalityType": "LT", "k": 3, "booleanValues": [1, 2, 3]}
+  ],
+  "unigen": {"support": 3}
+}

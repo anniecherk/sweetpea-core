@@ -1,11 +1,13 @@
 module SweetPeaCore
 ( emptyState, initState
-, assertKofN, kLessThanN, kGreaterThanN
-, halfAdder, fullAdder, rippleCarry, popCount)
+, assertKofN, kLessThanN, kGreaterThanN, makeSameLength
+, halfAdder, fullAdder, rippleCarry, popCount
+, toBinary, toNegTwosComp)
 where
 
 import Control.Monad.Trans.State
 import System.Random
+import Data.Tuple (swap)
 
 import DataStructures
 
@@ -78,52 +80,72 @@ toBinary input acc
   | even input = toBinary (quot input 2) ((-1):acc)
   | otherwise  = toBinary (quot input 2) (1:acc)
 
+
 -- TODO: use LL parser DS here instead of String
 inequality :: Bool -> Int -> [Var] -> State (Count, CNF) ()
 inequality isLessThan kInt inList = do
     popCountSum <- popCount inList
-    kVars <- getNFresh kInt
-    appendCNF $ map (:[]) $ zipWith (*) kVars $ toBinary kInt []
+    kVars <- getNFresh (length $ toBinary kInt [])
+    appendCNF $ map (:[]) $ zipWith (*) kVars $ toBinary kInt [] -- bind kVars to their bitpattern
+
+    (kVars', popCountSum') <- makeSameLength kVars popCountSum
+
     if isLessThan
-    then subtract' kVars popCountSum
-    else subtract' popCountSum kVars
+    then popCountSum' `assertLT` kVars'
+    else kVars' `assertLT` popCountSum'
+
+
+makeSameLength :: [Var] -> [Var] -> State (Count, CNF) ([Var], [Var])
+makeSameLength a b =
+  if length a < length b
+  then do -- also extend the bitwidth by one to safely negate two's complement
+    zeroPadding <- getNFresh (length b - length a + 1)
+    zeroOut zeroPadding -- this updates our CNF constraints to make sure those vars are actually 0
+    let a' = zeroPadding ++ a --prepend zeropadding
+    oneMoreZero <- getNFresh 1
+    zeroOut oneMoreZero
+    let b' = oneMoreZero ++ b
+    return (a', b')
+  else do
+    zeroPadding <- getNFresh (length a - length b + 1)
+    zeroOut zeroPadding -- this updates our CNF constraints to make sure those vars are actually 0
+    let b' = zeroPadding ++ b --prepend zeropadding
+    oneMoreZero <- getNFresh 1
+    zeroOut oneMoreZero
+    let a' = oneMoreZero ++ a
+    return (a', b')
+
 
  -- -- k < n  === k + (-n) < 0
  -- -- k is the desiredCount
  -- -- n is the output of popcount of the inList
-subtract' :: [Var] -> [Var] -> State (Count, CNF) ()
-subtract' k n = do
-  twosCompN <- toNegTwosComp n
-  -- zero pad twosCompK until it's the same size as twosCompN
-  zeroPadding <- getNFresh (length twosCompN - length k)
-  zeroOut zeroPadding -- this updates our CNF constraints to make sure those vars are actually 0
-  let twosCompK = zeroPadding ++ k --prepend zeropadding
+assertLT :: [Var] -> [Var] -> State (Count, CNF) ()
+assertLT k n = do
+  negTwosCompN <- toNegTwosComp n
   -- add em up
-  (cs, _) <- rippleCarry twosCompN twosCompK
-  -- assert that the top bit (the top carry out) is a 1 (meaning the number is negative in 2's comp)
-  setToOne $ maximum cs --TODO:OVERFLOW IN TWOS COMP: the top carry bit? not top sum bit?
-
+  (cs, ss) <- rippleCarry k negTwosCompN
+  -- assert that the top sum bit (the top sum bit) is a 1 (meaning the number is negative in 2's comp)
+  setToOne $ last ss -- actually grab *last* bit because rippleCarry is little endian :skull:
 
  -- https://courses.cs.vt.edu/csonline/NumberSystems/Lessons/SubtractionWithTwosComplement/index.html
- -- prepend a "1" to make it negative, flip the bits, & add one
+ -- flip the bits, & add one
  -- inList is the a list of the bits of the number in binary to take the 2's comp form of
  -- "ss" is the final neg 2's comp variable
 toNegTwosComp :: [Int] -> State (Count, CNF) [Int]
 toNegTwosComp inList = do  ----- NEGATE & FLIP THE BITS --------
-      -- get new vars, 1 more than inList so we can set the top bit
-      flippedBitsVars <- getNFresh(1 + length inList)
-      setToOne $ head flippedBitsVars -- sets top bit to "one" to negate
+      -- get new vars
+      flippedBitsVars <- getNFresh $ length inList
       -- flip the bits, ie assert freshVar_i iff ~inputVar_i
-      appendCNF $ concat $ zipWith doubleImplies (tail flippedBitsVars) (map (\x -> -x) inList)
+      appendCNF $ concat $ zipWith doubleImplies flippedBitsVars (map (\x -> -x) inList)
       ------- GET THE "ONE" TO ADD ----------------
       -- make a zero padded one (for the addition) of the right dimensions
-      oneVars <- getNFresh (1 + length inList)
+      oneVars <- getNFresh $ length inList
       -- set all the top bits to 0, the bottom bit to 1, ie 0001
       zeroOut $ init oneVars
       setToOne $ last oneVars
       ------- ADD EM ------------------------------
       (_, ss) <- rippleCarry flippedBitsVars oneVars
-      return ss
+      return (reverse ss)
 
 
 
@@ -171,6 +193,8 @@ fullAdder a b cin = do cout <- getFresh
                                   sImpliescVal = distribute (-s) sVal
                                   sValImpliesC = distribute s sNegVal
 
+-- CAUTION: This returns s's in LITTLE ENDIAN format
+--    to get the bit-pattern in big endian you need to reverse them! (ie, see format sum)
 -- http://www.dsm.fordham.edu/~moniot/Classes/CompOrganization/binary-adder/node7.html
 -- Ripple Carry! Wooh!
 -- Just a recursive function to tie the c's together correctly

@@ -1,0 +1,9 @@
+To run these tests, first build & spin up the server one directory down:
+
+stack build; stack exec server &
+
+Then from this directory, run ./run-tests.sh eq-0-fail.json
+
+or whatever file you want.
+
+It'll print the output of the solver, followed by the json spec so you can check the assignments to [1, 2, 3] match the spec
