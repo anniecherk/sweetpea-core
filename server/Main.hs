@@ -25,6 +25,7 @@ data SolutionSpec = SolutionSpec { assignment :: [Int]
 
 data ResponseSpec = ResponseSpec { ok :: Bool
                                  , solutions :: [SolutionSpec]
+                                 , count :: Int
                                  , stdout :: String
                                  , stderr :: String
                                  } deriving (Generic, Eq, Show, ToJSON, FromJSON)
@@ -48,6 +49,20 @@ app =
        let dimacsStr = processRequests spec
        text $ pack dimacsStr
 
+     post "experiments/count-solutions" $ do
+       spec <- jsonBody' :: ApiAction JSONSpec
+       guid <- liftIO $ toString <$> UUID.nextRandom
+       let filename = guid ++ ".cnf"
+       let outputFilename = guid ++ ".out"
+       liftIO $ saveCnf filename spec
+
+       -- Invoke sharpSAT to get an approximate solution count, time out at 60 seconds
+       (exitCode, stdout, stderr) <- liftIO $ readProcessWithExitCode "sharpSAT" ["-q", "-t", "60", filename] ""
+
+       if exitCode == ExitSuccess
+         then json $ ResponseSpec True [] (extractCount stdout) stdout stderr
+         else json $ ResponseSpec False [] (-1) stdout stderr
+
      post "experiments/generate" $ do
        spec <- jsonBody' :: ApiAction JSONSpec
        guid <- liftIO $ toString <$> UUID.nextRandom
@@ -64,10 +79,10 @@ app =
        -- exit codes seem to indicate some form of success.
        -- https://bitbucket.org/kuldeepmeel/unigen/src/4677b2ec4553b2a44a31910db0037820abdc1394/ugen2/cmsat/Main.cpp?at=master&fileviewer=file-view-default#Main.cpp-831
        if exitCode == ExitSuccess
-         then json $ ResponseSpec False [] stdout stderr
+         then json $ ResponseSpec False [] (-1) stdout stderr
          else do
            solutionFileStr <- liftIO $ readSolutionFile outputFilename
-           json $ ResponseSpec True (extractSolutions solutionFileStr) "" ""
+           json $ ResponseSpec True (extractSolutions solutionFileStr) (-1) "" ""
 
 saveCnf :: String -> JSONSpec -> IO ()
 saveCnf filename spec =
@@ -92,3 +107,8 @@ buildSolution sol = do
     in let assignment = map strToInt (take ((length intStrs) - 1) intStrs)
            frequency = strToInt $ last $ split (==':') (last intStrs)
        in SolutionSpec assignment frequency
+
+extractCount :: String -> Int
+extractCount output =
+  let lines = split (=='\n') (strip (pack output))
+  in strToInt $ lines !! 0
