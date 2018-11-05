@@ -18,7 +18,11 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     git \
     autoconf \
     libtool \
-    zlib1g-dev
+    zlib1g-dev \
+    wget \
+    libboost-program-options-dev \
+    libm4ri-dev \
+    libsqlite3-dev
 
 RUN git clone https://bitbucket.org/kuldeepmeel/unigen && \
     cd unigen/ugen2 && \
@@ -26,6 +30,21 @@ RUN git clone https://bitbucket.org/kuldeepmeel/unigen && \
     mkdir build && \
     cd build && \
     ../configure --enable-static-link && \
+    make
+
+# The version of CMAKE in the repo is too old for cmsat.
+RUN wget http://www.cmake.org/files/v3.5/cmake-3.5.2.tar.gz && \
+    tar xf cmake-3.5.2.tar.gz && \
+    cd cmake-3.5.2 && \
+    ./configure && \
+    make && \
+    make install
+
+RUN wget https://github.com/msoos/cryptominisat/archive/5.6.5.tar.gz && \
+    tar xzf 5.6.5.tar.gz && \
+    cd cryptominisat-5.6.5 && \
+    mkdir build && cd build && \
+    cmake -DSTATICCOMPILE=ON -DCMAKE_BUILD_TYPE=Release .. && \
     make
 
 # SERVER
@@ -40,6 +59,7 @@ RUN git clone https://github.com/anniecherk/sweetpea-core && \
 FROM fpco/haskell-scratch:integer-gmp
 
 COPY --from=unigen-builder /unigen/ugen2/build/unigen /bin/
+COPY --from=unigen-builder /cryptominisat-5.6.5/build/cryptominisat5 /bin/
 COPY --from=server-builder /root/.local/bin/server /bin/
 
 EXPOSE 8080
