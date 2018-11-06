@@ -8,6 +8,7 @@ import Web.Spock.Config
 import Control.Monad.IO.Class
 import GHC.Generics
 import Data.Aeson hiding (json)
+import Data.List
 import Data.Monoid
 import Data.Text (Text, pack, unpack, split, strip)
 import Data.UUID
@@ -16,6 +17,7 @@ import Data.UUID.V4 as UUID
 import System.Exit
 import System.IO
 import System.Process
+import qualified System.IO.Strict as S
 
 import Parser
 
@@ -49,6 +51,7 @@ app =
        let dimacsStr = processRequests spec
        text $ pack dimacsStr
 
+     -- Doesn't work yet, need to get a statically-linked binary built into the docker image.
      post "experiments/count-solutions" $ do
        spec <- jsonBody' :: ApiAction JSONSpec
        guid <- liftIO $ toString <$> UUID.nextRandom
@@ -84,6 +87,16 @@ app =
            solutionFileStr <- liftIO $ readSolutionFile outputFilename
            json $ ResponseSpec True (extractSolutions solutionFileStr) (-1) "" ""
 
+     post ("experiments/generate/non-uniform" <//> var) $ \count -> do
+       spec <- jsonBody' :: ApiAction JSONSpec
+       guild <- liftIO $ toString <$> UUID.nextRandom
+       let filename = guild ++ ".cnf"
+       liftIO $ saveCnf filename spec
+
+       solutions <- liftIO $ computeSolutions filename (support (unigen spec)) count []
+       json $ ResponseSpec True (map ((flip SolutionSpec) 1) solutions) (-1) "" ""
+
+
 saveCnf :: String -> JSONSpec -> IO ()
 saveCnf filename spec =
   let dimacsStr = processRequests spec
@@ -112,3 +125,55 @@ extractCount :: String -> Int
 extractCount output =
   let lines = split (=='\n') (strip (pack output))
   in strToInt $ lines !! 0
+
+computeSolutions :: String -> Int -> Int -> [[Int]] -> IO [[Int]]
+computeSolutions filename support count solutions = do
+  if count == 0
+    then return solutions
+    else do
+    -- Invoke cryptominisat to get a solution
+    (exitCode, stdout, stderr) <- liftIO $ readProcessWithExitCode "cryptominisat5" ["--verb=0", filename] ""
+
+    -- Extract assignment from stdout
+    let rawSolution = parseCMSatSolution stdout
+    let solution = take support rawSolution
+
+    -- Update the file to not include this solution.
+    liftIO $ updateFile filename solution
+
+    -- Go for another round
+    computeSolutions filename support (count - 1) (solutions ++ [solution])
+
+updateFile :: String -> [Int] -> IO ()
+updateFile filename solution = do
+  -- Load the CNF file, split into lines
+  -- Read strictly to ensure we can rewrite the file afterwards.
+  contents <- liftIO $ S.readFile filename
+  let lines = split (=='\n') (strip (pack contents))
+
+  -- Update the clause count.
+  let updatedHeader = updateHeader (unpack (lines !! 0))
+
+  -- Negate the given solution
+  let negatedSolution = map (*(-1)) solution
+  let negatedSolutionStr = unwords $ map show (negatedSolution ++ [0])
+
+  -- Append it to the end of the CNF file, with a 0 at the end.
+  let updatedLines = [(pack updatedHeader)] ++ (drop 1 lines) ++ [(pack negatedSolutionStr)]
+
+  -- Rewrite file to disk.
+  let updatedContents = (intercalate "\n" (map unpack updatedLines))
+  writeFile filename updatedContents
+
+updateHeader :: String -> String
+updateHeader header =
+  let segments = split (==' ') (strip (pack header))
+  in let newClauseCount = (strToInt (segments !! 3)) + 1
+     in unwords $ map unpack ((take 3 segments) ++ [pack $ show newClauseCount])
+
+parseCMSatSolution :: String -> [Int]
+parseCMSatSolution output =
+  -- Get solution lines from output.
+  let lines = filter (isPrefixOf "v") (map unpack (split (=='\n') (strip (pack output))))
+  in let intStrs = split (==' ') $ strip $ pack $ (filter (/='v') (foldr (++) "" lines))
+  in map strToInt intStrs

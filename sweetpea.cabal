@@ -66,6 +66,7 @@ executable server
                      , text
                      , uuid
                      , process
+                     , strict
   default-language:    Haskell2010
 
 test-suite unitTests
