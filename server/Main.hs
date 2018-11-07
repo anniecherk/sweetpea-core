@@ -20,6 +20,7 @@ import System.Process
 import qualified System.IO.Strict as S
 
 import Parser
+import ServerHelpers
 
 data SolutionSpec = SolutionSpec { assignment :: [Int]
                                  , frequency :: Int
@@ -111,9 +112,6 @@ extractSolutions solutionStr =
   let lines = split (=='\n') (strip (pack solutionStr))
   in map buildSolution lines
 
-strToInt :: Text -> Int
-strToInt str = read $ unpack str
-
 buildSolution :: Text -> SolutionSpec
 buildSolution sol = do
   let intStrs = split (==' ') (pack [c | c <- unpack $ strip sol, not (c == 'v')])
@@ -164,16 +162,3 @@ updateFile filename solution = do
   -- Rewrite file to disk.
   let updatedContents = (intercalate "\n" (map unpack updatedLines))
   writeFile filename updatedContents
-
-updateHeader :: String -> String
-updateHeader header =
-  let segments = split (==' ') (strip (pack header))
-  in let newClauseCount = (strToInt (segments !! 3)) + 1
-     in unwords $ map unpack ((take 3 segments) ++ [pack $ show newClauseCount])
-
-parseCMSatSolution :: String -> [Int]
-parseCMSatSolution output =
-  -- Get solution lines from output.
-  let lines = filter (isPrefixOf "v") (map unpack (split (=='\n') (strip (pack output))))
-  in let intStrs = split (==' ') $ strip $ pack $ (filter (/='v') (foldr (++) "" lines))
-  in map strToInt intStrs

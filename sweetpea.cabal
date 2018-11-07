@@ -16,7 +16,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     SweetPeaCore, DataStructures
-                     , CodeGen, Testers, Parser
+                     , CodeGen, Testers, Parser, ServerHelpers
   build-depends:       base >= 4.7 && < 5
                      , tuple
                      , text
@@ -71,7 +71,7 @@ executable server
 
 test-suite unitTests
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
+  hs-source-dirs:      test, server
   main-is:             Spec.hs
   build-depends:       base
                      , sweetpea
