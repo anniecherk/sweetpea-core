@@ -37,9 +37,14 @@ data ResponseSpec = ResponseSpec { ok :: Bool
 type Api = SpockM () () () ()
 type ApiAction a = SpockAction () () () a
 
+serverCfg :: IO (SpockCfg () () ())
+serverCfg = do
+    spockConfig <- defaultSpockCfg () PCNoDatabase ()
+    return spockConfig { spc_maxRequestSize = Nothing } -- Disable the request size limit
+
 main :: IO ()
 main = do
-  spockCfg <- defaultSpockCfg () PCNoDatabase ()
+  spockCfg <- serverCfg
   runSpock 8080 (spock spockCfg app)
 
 app :: Api
