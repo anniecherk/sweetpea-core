@@ -14,7 +14,10 @@ updateHeader header =
 
 parseCMSatSolution :: String -> [Int]
 parseCMSatSolution output = do
-  -- Get solution lines from output.
-  let lines = filter (isPrefixOf "v") (map (unpack . strip) (split (=='\n') (strip (pack output))))
-    in let intStrs = split (==' ') $ strip $ pack $ (filter (/='v') (foldr (++) "" lines))
-       in map strToInt intStrs
+  -- If it's UNSAT, then return an empty list
+  if isInfixOf "s UNSATISFIABLE" output
+    then []
+    -- Get solution lines from output.
+    else let lines = filter (isPrefixOf "v") (map (unpack . strip) (split (=='\n') (strip (pack output))))
+         in let intStrs = split (==' ') $ strip $ pack $ (filter (/='v') (foldr (++) "" lines))
+            in map strToInt intStrs

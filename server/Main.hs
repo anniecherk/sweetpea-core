@@ -139,13 +139,17 @@ computeSolutions filename support count solutions = do
 
     -- Extract assignment from stdout
     let rawSolution = parseCMSatSolution stdout
-    let solution = take support rawSolution
 
-    -- Update the file to not include this solution.
-    liftIO $ updateFile filename solution
+    -- Quit if the formula was unsat
+    if rawSolution == []
+      then return solutions
+      else do let solution = take support rawSolution
 
-    -- Go for another round
-    computeSolutions filename support (count - 1) (solutions ++ [solution])
+              -- Update the file to not include this solution.
+              liftIO $ updateFile filename solution
+
+              -- Go for another round
+              computeSolutions filename support (count - 1) (solutions ++ [solution])
 
 updateFile :: String -> [Int] -> IO ()
 updateFile filename solution = do

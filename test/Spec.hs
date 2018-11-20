@@ -77,4 +77,9 @@ parseCMSatSolutionTests = testGroup "parseCMSatSolution tests"
                  "v -6 7 -8 9 \n" ++
                  "v 10 11 0  " in
       parseCMSatSolution output @?= [-1, -2, 3, 4, -5, -6, 7, -8, 9, 10, 11, 0]
+
+  , testCase "unsatisfiable formula should return empty list" $
+    let output = "c Independent vars set: 1,2,3,4,5\n" ++
+                 "s UNSATISFIABLE\n" in
+      parseCMSatSolution output @?= []
   ]
