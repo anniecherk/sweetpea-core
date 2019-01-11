@@ -16,6 +16,7 @@ import Data.UUID.V4 as UUID
 
 import System.Exit
 import System.IO
+import System.Directory
 import System.Process
 import qualified System.IO.Strict as S
 
@@ -100,6 +101,8 @@ app =
        liftIO $ saveCnf filename spec
 
        solutions <- liftIO $ computeSolutions filename (support (unigen spec)) count []
+       liftIO $ removeFile filename
+
        json $ ResponseSpec True (map ((flip SolutionSpec) 1) solutions) (-1) "" ""
 
 
